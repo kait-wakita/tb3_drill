@@ -9,7 +9,6 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 
 
-
 def callback_laser(msg):
     global distance
     data = np.array(msg.ranges)
@@ -35,7 +34,7 @@ distance = 100
 x_goal = 1.8
 y_goal = 0.0
 
-rate = rospy.Rate(10)
+rate = rospy.Rate(2)
 rospy.on_shutdown(callback_shutdown)
 rospy.sleep(0.0)  # for gazebo
 
@@ -45,20 +44,25 @@ while not rospy.is_shutdown():
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
         continue
     e = tf.transformations.euler_from_quaternion((rot[0], rot[1], rot[2], rot[3]))
-    rospy.loginfo("x=%f, y=%f, theta=%f",trans[0],trans[1],np.rad2deg(e[2]))
+    # rospy.loginfo("x=%f, y=%f, theta=%f",trans[0],trans[1],np.rad2deg(e[2]))
 
     x = trans[0]
     y = trans[1]
     r = math.atan2(y_goal-y, x_goal-x)
-    rt = np.rad2deg(r) - e[2]
-    dir_goal = (rt + 180) % 360 - 180
+    rtd = np.rad2deg(r - e[2])
+    dir_goal = (rtd + 180) % 360 - 180
     dist_goal=math.sqrt((x_goal-x)**2+(y_goal-y)**2)
 
+    rospy.loginfo("dir(pose)=%f, dir(goal)=%f", np.rad2deg(e[2]), np.rad2deg(r))  
+
+    if dist_goal < 0.3:
+        cmd_vel_pub.publish(stop_cmd)
     if distance < 0.5:
         cmd_vel_pub.publish(rotate_cmd)
+        a = 0
     else:
         navi_cmd = geometry_msgs.msg.Twist()
-        navi_cmd.linear.x = min(dist_goal / 1, 0.5)
+        navi_cmd.linear.x = min(dist_goal / 1, 0.3)
         navi_cmd.angular.z = 0.5 * (np.deg2rad(dir_goal))
         cmd_vel_pub.publish(navi_cmd)
 

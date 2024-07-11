@@ -6,6 +6,7 @@ import tf
 import geometry_msgs.msg
 import numpy as np
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import LaserScan
 
 
@@ -15,11 +16,18 @@ def callback_laser(msg):
     data = np.where(data<msg.range_min, msg.range_max, data)
     distance = min(min(data[0:30]), min(data[330:360]))
 
+def callback_goal(msg):
+    global x_goal, y_goal
+    x_goal = msg.pose.position.x
+    y_goal = msg.pose.position.y
+
+
 def callback_shutdown():
     cmd_vel_pub.publish(stop_cmd)
 
 cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
 scan_sub = rospy.Subscriber('scan', LaserScan, callback_laser)
+pose_sub = rospy.Subscriber('move_base_simple/goal',PoseStamped, callback_goal)
 
 rospy.init_node('simple_navi') 
 listener = tf.TransformListener()
@@ -27,7 +35,7 @@ listener = tf.TransformListener()
 move_cmd = Twist()
 move_cmd.linear.x = 0.2
 rotate_cmd = Twist()
-rotate_cmd.angular.z = 0.2
+rotate_cmd.angular.z = 0.3
 stop_cmd = Twist()
 
 distance = 100
@@ -53,11 +61,12 @@ while not rospy.is_shutdown():
     dir_goal = (rtd + 180) % 360 - 180
     dist_goal=math.sqrt((x_goal-x)**2+(y_goal-y)**2)
 
-    rospy.loginfo("dir(pose)=%f, dir(goal)=%f", np.rad2deg(e[2]), np.rad2deg(r))  
+    #rospy.loginfo("dir(pose)=%f, dir(goal)=%f", np.rad2deg(e[2]), np.rad2deg(r))  
+    rospy.loginfo("dist_goal=%f, dir_goal=%f", dist_goal, dir_goal)     
 
     if dist_goal < 0.3:
         cmd_vel_pub.publish(stop_cmd)
-    if distance < 0.5:
+    elif distance < 0.5:
         cmd_vel_pub.publish(rotate_cmd)
         a = 0
     else:
